@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bash
+  labels:
+    app: bash
+spec:
+  containers:
+    - image: 'minikube:5000/minikube/bash'
+      name: script
+      imagePullPolicy: Always

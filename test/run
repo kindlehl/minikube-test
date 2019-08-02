@@ -1,0 +1,6 @@
+#!/bin/bash
+
+docker build --tag minikube:5000/minikube/bash .
+docker push minikube:5000/minikube/bash
+kubectl create -f pod.yaml
+watch kubectl get po
