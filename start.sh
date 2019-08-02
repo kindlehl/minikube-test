@@ -37,4 +37,5 @@ minikube addons enable registry
 sudo sed -i "$ a $(minikube ip) minikube" /etc/hosts
 
 # Use minikube's Docker daemon
-eval $(minikube docker-env)
+minikube docker-env > k8s_env
+. k8s_env

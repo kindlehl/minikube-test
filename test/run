@@ -1,6 +1,11 @@
 #!/bin/bash
 
-docker build --tag minikube:5000/minikube/bash .
-docker push minikube:5000/minikube/bash
+docker build --tag minikube:5000/whatever/bash .
+
+# sleeping so docker can recognize that it has the image
+# This prevents errors from pushing an image that isn't quite there 100%
+sleep 3
+
+docker push minikube:5000/whatever/bash
 kubectl create -f pod.yaml
 watch kubectl get po

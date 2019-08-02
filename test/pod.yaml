@@ -6,6 +6,6 @@ metadata:
     app: bash
 spec:
   containers:
-    - image: 'minikube:5000/minikube/bash'
+    - image: 'minikube:5000/whatever/bash'
       name: script
       imagePullPolicy: Always
