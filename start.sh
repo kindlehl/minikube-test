@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Install kubectl if it isn't already
 if ! command -v kubectl >/dev/null; then
   echo "[NOTICE] Installing kubectl"
