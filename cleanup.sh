@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Deconfigure Networking configuration
 #sudo sysctl -w net.ipv4.conf.all.route_localnet=0
 #sudo iptables -t nat -D OUTPUT -p tcp --dport 5000 -j DNAT --to-destination $(minikube ip):5000
