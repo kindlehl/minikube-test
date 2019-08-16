@@ -1,50 +1,108 @@
-# Kubernetes Testing Platform
+## Using a Local Registry for Test Images
 
-This repo provides two scripts and a buildable docker image to setup a minikube cluster and private registry.
+### Prerequisites
 
-## How To Use?
+You need to have the following tools installed:
 
-To get started, source `./start.sh`. You must source the file (using `.` or `source`) so it modifies your shell
-environment.
+* `kubectl`
+* `minikube`
 
-Next, `cd` into the `test` directory. This directory contains a Dockerfile, a simple bash script, a k8s pod manifest,
-and a script called `run` that will:
-* Build a Docker container
-* Push it to the minikube cluster's registry
-* Apply the manifest to Kubernetes to start up a pod.
-* Show progress as kubernetes schedules, pulls, and runs the container.
-* Creates an environment file `k8s_env`
+They can be configured every which way, just have the binaries on your workstation and in your `PATH` variable.
 
-To verify that this setup works, run the `run` script and wait. If kubernetes spins up a pod called `bash`, then it
-works!
+### Starting up and configuring Minikube
 
-You can build images and push them as minikube:5000/`anything`/`anything` to make them accessible to the cluster. 
+Start up the Minikube cluster and allow connecting to an insecure registry.
 
-If you want to use another shell, you can source the environment file `k8s_env`. If you don't you will be using the
-local docker daemon. This is fine, but the test script won't work, and you'll have to run docker commands as root or
-make yourself a part of the `docker` group.
+```bash
+minikube start --insecure-registry 'minikube:5000'
+```
+Login to the Minikube VM and open `/var/lib/boot2docker/profile` in a text editor. You need to add the following line if
+it does not exist.
 
-When you're done, run the `cleanup.sh` script to free up most resources. 
+```bash
+EXTRA_ARGS='--insecure-registry minikube:5000'
+```
 
-## Scripts
+Then restart the docker daemon.
 
-`./start.sh`
+```bash
+sudo systemctl restart docker
+```
 
-* Installs minikube and kubectl if need be.
-* Starts minikube cluster with a local image registry
-* Configures kubectl to use the Minikube cluster
-* Modifies Docker environment to use Minikube's Docker daemon
-* Stubs hostname 'minikube' to point to the cluster
+Every time a docker command is ran by Kubernetes, those `EXTRA_ARGS` are going to be added. This will ensure that
+Kubernetes has no problems pulling down your test images from the local registry, since the Minikube registry plugin
+operates over plaintext HTTP. Normally, Docker would throw an error about the registry being insecure.
 
-`./cleanup.sh`
+You can automate this step by using this command.
 
-* Removes 'minikube' hostname stub
-* Destroys Minikube cluster
+```bash
+minikube ssh "sudo grep EXTRA_ARGS /var/lib/boot2docker/profile || echo \"EXTRA_ARGS='--insecure-registry minikube:5000'\" | sudo tee -a /var/lib/boot2docker/profile && sudo systemctl restart docker"
+```
 
-`./test/run`
+Now just simply enable the registry.
 
-**Should be ran with test as the CWD**
+```bash
+minikube addons enable registry
+```
 
-* Builds Docker container from `.`
-* Pushes container to registry
-* Deploys container as a Pod
+### Configure Kubectl to use Minikube
+
+When running the `minikube start` command, the Minikube process updates your kubectl configuration. In order to interact with the Minikube Kubernetes API, you need to tell `kubectl` to use it. 
+
+```bash
+kubectl config use-context minikube
+```
+
+### Setup Your Shell Environment
+
+You can skip this step, but I don't recommend it. Just run this command.
+
+```bash
+eval "$(minikube docker-env)"
+```
+
+This command configures your environment so `docker` will connect to the daemon provided by the Minikube
+VM. This is handy for a couple reasons:
+
+* Your local setup won't get bloated with test images/layers
+* You don't need to be in the `docker` group or use sudo to run Docker commands because the Minikube Docker daemon listens on a TCP socket without
+  authentication
+
+### Stub Local DNS for Minikube Registry
+
+Make sure your `/etc/hosts` (or equivalent) has an entry for the name `minikube`.
+
+```bash
+sudo sed -i "$ a $(minikube ip) minikube" /etc/hosts
+```
+
+Make sure you don't already have an entry or you might find things not working so well.
+
+### How to Use the Registry
+
+You now have minikube running with a local registry at `minikube:5000`.  To push to the registry, tag an image with
+`minikube:5000/{anything1}/{anything2}`. You can use whatever names you want for `anything1` and `anything2`. Then push
+the image. You should be able use the image in Kubernetes. You'll have to specify the full image URI in the Kubernetes
+manifests (ex. minikube:5000/test/postgresql)
+
+
+### One Shot Setup
+
+You probably don't want to run the same commands everytime to set this up. Heres a nice little script. Copy this and
+`chmod +x` it.
+
+```bash
+#!/bin/bash
+minikube start --insecure-registry 'minikube:5000'
+minikube ssh "sudo grep EXTRA_ARGS /var/lib/boot2docker/profile || echo \"EXTRA_ARGS='--insecure-registry minikube:5000'\" | sudo tee -a /var/lib/boot2docker/profile && sudo systemctl restart docker"
+kubectl config use-context minikube
+minikube addons enable registry 
+sudo sed -i "$ a $(minikube ip) minikube" /etc/hosts
+eval "$(minikube docker-env)"
+```
+### Cleaning Up
+
+Remove all entries in your `/etc/hosts` with the minikube name attached. You can do `sudo sed -i '/minikube/d' /etc/hosts` to accomplish this.
+
+Then run `minikube delete`.
+
